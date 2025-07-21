@@ -5,7 +5,7 @@ use std::{
 };
 
 use clap::{App, Arg};
-use csv::{Reader, ReaderBuilder};
+use csv::ReaderBuilder;
 use serde::Deserialize;
 use tabled::{Table, Tabled, settings::Style};
 
@@ -29,12 +29,9 @@ fn list_todos() -> Result<(), Box<(dyn Error + 'static)>> {
             exit(1);
         }
     };
-    let mut reader = Reader::from_reader(file);
-    let records_count = reader.records().count();
 
-    let file = File::open(DATABASE_PATH)?;
     let mut reader = ReaderBuilder::new().trim(csv::Trim::All).from_reader(file);
-    let mut table_data: Vec<Todo> = Vec::with_capacity(records_count);
+    let mut table_data: Vec<Todo> = Vec::new();
 
     for result in reader.deserialize() {
         let record: Todo = result?;
