@@ -118,7 +118,7 @@ N/A
 
 ## Roadmap
 
-- [ ] Implement `create` command for adding new todos
+- [x] Implement `create` command for adding new todos
 - [ ] Implement `update` command for modifying existing todos
 - [ ] Implement `delete` command for removing todos
 - [ ] Implement `complete` command for marking todos as done
