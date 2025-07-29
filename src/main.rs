@@ -1,17 +1,19 @@
 use std::{
-    error::Error,
-    fs::File,
+    fs::{self, File, OpenOptions},
+    io,
+    path::Path,
     process::{ExitCode, exit},
 };
 
 use clap::{App, Arg};
-use csv::ReaderBuilder;
-use serde::Deserialize;
+use csv::{Reader, ReaderBuilder, WriterBuilder};
+use serde::{Deserialize, Serialize};
 use tabled::{Table, Tabled, settings::Style};
 
 static DATABASE_PATH: &str = "data/db.csv";
+static DATABASE_DIR: &str = "data";
 
-#[derive(Debug, Deserialize, Tabled, Clone)]
+#[derive(Debug, Serialize, Deserialize, Tabled, Clone)]
 struct Todo {
     #[serde(rename = "ID")]
     id: String,
@@ -21,31 +23,19 @@ struct Todo {
     completed: bool,
 }
 
-fn list_todos() -> Result<(), Box<(dyn Error + 'static)>> {
-    let file = match File::open(DATABASE_PATH) {
-        Ok(file) => file,
-        Err(err) => {
-            println!("Failed to open database: {:?}", err);
-            exit(1);
+impl Todo {
+    fn new(id: usize, task: &str) -> Todo {
+        Todo {
+            id: id.to_string(),
+            task: task.to_owned(),
+            completed: false,
         }
-    };
-
-    let mut reader = ReaderBuilder::new().trim(csv::Trim::All).from_reader(file);
-    let mut table_data: Vec<Todo> = Vec::new();
-
-    for result in reader.deserialize() {
-        let record: Todo = result?;
-        table_data.push(record);
     }
-
-    let mut table = Table::new(table_data);
-    table.with(Style::modern());
-
-    println!("{table}");
-    Ok(())
 }
 
 fn main() -> ExitCode {
+    create_db_if_not_exists();
+
     let args = App::new("todosh.rs")
         .version("1.0.0")
         .about("Terminal based todo list app")
@@ -72,9 +62,21 @@ fn main() -> ExitCode {
         }
         Some(cmd) if matches!(cmd, "create" | "update" | "delete" | "list" | "complete") => {
             if cmd == "list" {
-                if let Err(err) = list_todos() {
-                    println!("{}", err);
-                    exit(1);
+                list_todos()
+            } else if cmd == "create" {
+                let mut input = String::new();
+                println!("Enter new task (press enter to submit):");
+
+                match io::stdin().read_line(&mut input) {
+                    Ok(_) => {
+                        create_todo(input);
+
+                        list_todos();
+                    }
+                    Err(error) => {
+                        println!("error: {error}");
+                        exit(1);
+                    }
                 }
             } else {
                 println!("{} ran successfully", cmd);
@@ -86,4 +88,101 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn create_db_if_not_exists() {
+    if !Path::new(DATABASE_DIR).exists() {
+        if let Err(e) = fs::create_dir_all(DATABASE_DIR) {
+            eprintln!("Failed to create database directory: {e}");
+            exit(1);
+        }
+    }
+
+    let db_exists = Path::new(DATABASE_PATH).is_file();
+
+    if db_exists {
+        return;
+    }
+
+    match File::create(DATABASE_PATH) {
+        Ok(_) => {
+            println!("Database created...")
+        }
+        Err(e) => {
+            eprintln!("Failed to create database: {e:?}");
+            exit(1);
+        }
+    }
+}
+
+fn get_reader() -> Reader<File> {
+    match ReaderBuilder::new()
+        .trim(csv::Trim::All)
+        .from_path(DATABASE_PATH)
+    {
+        Ok(rdr) => rdr,
+        Err(e) => {
+            eprintln!("Failed to create csv reader: {e:?}");
+            exit(1);
+        }
+    }
+}
+
+fn list_todos() {
+    let mut reader = get_reader();
+    let mut table_data: Vec<Todo> = Vec::new();
+
+    for result in reader.deserialize() {
+        let record: Todo = match result {
+            Ok(row) => row,
+            Err(e) => {
+                println!("Failed to parse csv row: {e:?}");
+                Todo {
+                    id: String::new(),
+                    task: String::new(),
+                    completed: false,
+                }
+            }
+        };
+        table_data.push(record);
+    }
+
+    let mut table = Table::new(table_data);
+    table.with(Style::modern());
+
+    println!("{table}");
+}
+
+fn create_todo(input: String) {
+    let mut reader = get_reader();
+    let next_id = reader.records().count() + 1;
+    let new_task = Todo::new(next_id, input.trim_end());
+
+    let file = match OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(DATABASE_PATH)
+    {
+        Ok(w) => w,
+        Err(e) => {
+            println!("Failed to open db.csv: {e:?}");
+            exit(1);
+        }
+    };
+
+    println!("NEXT_ID: {next_id}");
+
+    let has_headers = next_id == 1;
+    let mut writer = WriterBuilder::new()
+        .has_headers(has_headers)
+        .from_writer(file);
+
+    match writer.serialize(new_task) {
+        Ok(_) => {
+            writer.flush().unwrap();
+        }
+        Err(e) => {
+            println!("Failed to write new todo to db: {e:?}");
+        }
+    };
 }
