@@ -200,19 +200,30 @@ fn create_todo(input: String) {
 
 fn complete_todo(id: String) {
     let mut reader = get_reader();
+    let mut updated = false;
 
-    let updated = reader
+    let updated_records = reader
         .deserialize()
         .map(|row| {
             let mut record: Todo = row.unwrap();
 
             if id == record.id {
-                record.completed = true;
+                if !record.completed {
+                    println!("Updating todo with id {}...", id);
+                    updated = true;
+                    record.completed = true;
+                }
             }
 
             record
         })
         .collect::<Vec<Todo>>();
+
+    if !updated {
+        println!("Todo with ID '{}' not found or already completed.", id);
+        list_todos();
+        return;
+    }
 
     match reader.get_mut().flush() {
         Ok(_) => {
@@ -230,7 +241,7 @@ fn complete_todo(id: String) {
 
             let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-            for todo in updated {
+            for todo in updated_records {
                 if let Err(e) = writer.serialize(todo) {
                     println!("Failed to write updated todo to db: {e:?}");
                     exit(1);
