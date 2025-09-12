@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File, OpenOptions},
-    io,
+    io::{self, Write},
     path::Path,
     process::{ExitCode, exit},
 };
@@ -77,6 +77,17 @@ fn main() -> ExitCode {
                         println!("error: {error}");
                         exit(1);
                     }
+                }
+            } else if cmd == "complete" {
+                let value = args.value_of("input");
+
+                if let Some(id) = value {
+                    let id: u16 = id.parse().expect("Invalid Todo id supplied");
+
+                    complete_todo(id.to_string());
+                } else {
+                    println!("error: Id is expected");
+                    exit(1);
                 }
             } else {
                 println!("{} ran successfully", cmd);
@@ -183,6 +194,59 @@ fn create_todo(input: String) {
         }
         Err(e) => {
             println!("Failed to write new todo to db: {e:?}");
+        }
+    };
+}
+
+fn complete_todo(id: String) {
+    let mut reader = get_reader();
+
+    let updated = reader
+        .deserialize()
+        .map(|row| {
+            let mut record: Todo = row.unwrap();
+
+            if id == record.id {
+                record.completed = true;
+            }
+
+            record
+        })
+        .collect::<Vec<Todo>>();
+
+    match reader.get_mut().flush() {
+        Ok(_) => {
+            let file = match OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(DATABASE_PATH)
+            {
+                Ok(w) => w,
+                Err(e) => {
+                    println!("Failed to open db.csv: {e:?}");
+                    exit(1);
+                }
+            };
+
+            let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
+
+            for todo in updated {
+                if let Err(e) = writer.serialize(todo) {
+                    println!("Failed to write updated todo to db: {e:?}");
+                    exit(1);
+                }
+            }
+
+            if let Err(e) = writer.flush() {
+                println!("Failed to flush writer: {e:?}");
+                exit(1);
+            }
+
+            list_todos();
+        }
+        Err(e) => {
+            println!("Failed to flush reader: {e:?}");
+            exit(1);
         }
     };
 }

@@ -121,7 +121,7 @@ N/A
 - [x] Implement `create` command for adding new todos
 - [ ] Implement `update` command for modifying existing todos
 - [ ] Implement `delete` command for removing todos
-- [ ] Implement `complete` command for marking todos as done
+- [x] Implement `complete` command for marking todos as done
 - [ ] Add filtering and search capabilities
 - [ ] Add due dates and priority levels
 - [ ] Add color coding for different todo states
