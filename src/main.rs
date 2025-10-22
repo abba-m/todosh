@@ -53,52 +53,68 @@ fn main() -> ExitCode {
         )
         .get_matches();
 
-    let pattern = args.value_of("command");
+    if args.value_of("command").is_none() {
+        println!("<command> is required");
+        exit(1)
+    }
+
+    let pattern = args.value_of("command").unwrap();
+
+    if !matches!(
+        pattern,
+        "create" | "update" | "delete" | "list" | "complete"
+    ) {
+        println!("Invalid command");
+        exit(1)
+    }
 
     match pattern {
-        None => {
-            println!("<command> is required");
-            ExitCode::FAILURE
-        }
-        Some(cmd) if matches!(cmd, "create" | "update" | "delete" | "list" | "complete") => {
-            if cmd == "list" {
-                list_todos()
-            } else if cmd == "create" {
-                let mut input = String::new();
+        "list" => list_todos(),
+        "create" => {
+            let mut input = String::new();
+
+            if let Some(input_str) = args.value_of("input") {
+                input = input_str.to_string();
+            } else {
                 println!("Enter new task (press enter to submit):");
 
-                match io::stdin().read_line(&mut input) {
-                    Ok(_) => {
-                        create_todo(input);
-
-                        list_todos();
-                    }
-                    Err(error) => {
-                        println!("error: {error}");
-                        exit(1);
-                    }
-                }
-            } else if cmd == "complete" {
-                let value = args.value_of("input");
-
-                if let Some(id) = value {
-                    let id: u16 = id.parse().expect("Invalid Todo id supplied");
-
-                    complete_todo(id.to_string());
-                } else {
-                    println!("error: Id is expected");
+                if let Err(error) = io::stdin().read_line(&mut input) {
+                    println!("error: {error}");
                     exit(1);
                 }
-            } else {
-                println!("{} ran successfully", cmd);
             }
-            ExitCode::SUCCESS
+
+            create_todo(input);
+            list_todos();
         }
-        Some(_) => {
-            println!("Invalid command");
-            ExitCode::FAILURE
+        "complete" => {
+            let value = args.value_of("input");
+
+            if let Some(id) = value {
+                let id: u16 = id.parse().expect("Invalid Todo id supplied");
+
+                complete_todo(id.to_string());
+            } else {
+                println!("error: Id is expected");
+                exit(1);
+            }
         }
+        "delete" => {
+            let value = args.value_of("input");
+
+            if value.is_none() {
+                println!("error: Id is expected");
+                exit(1);
+            }
+
+            let id: u16 = value.unwrap().parse().expect("Invalid Todo id supplied");
+
+            delete_todo(id.to_string())
+        }
+        _ => println!("{pattern} ran successfully"),
     }
+
+    ExitCode::SUCCESS
 }
 
 fn create_db_if_not_exists() {
@@ -181,8 +197,6 @@ fn create_todo(input: String) {
         }
     };
 
-    println!("NEXT_ID: {next_id}");
-
     let has_headers = next_id == 1;
     let mut writer = WriterBuilder::new()
         .has_headers(has_headers)
@@ -198,32 +212,8 @@ fn create_todo(input: String) {
     };
 }
 
-fn complete_todo(id: String) {
+fn write_to_database(records: Vec<Todo>) {
     let mut reader = get_reader();
-    let mut updated = false;
-
-    let updated_records = reader
-        .deserialize()
-        .map(|row| {
-            let mut record: Todo = row.unwrap();
-
-            if id == record.id {
-                if !record.completed {
-                    println!("Updating todo with id {}...", id);
-                    updated = true;
-                    record.completed = true;
-                }
-            }
-
-            record
-        })
-        .collect::<Vec<Todo>>();
-
-    if !updated {
-        println!("Todo with ID '{}' not found or already completed.", id);
-        list_todos();
-        return;
-    }
 
     match reader.get_mut().flush() {
         Ok(_) => {
@@ -241,7 +231,7 @@ fn complete_todo(id: String) {
 
             let mut writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
-            for todo in updated_records {
+            for todo in records {
                 if let Err(e) = writer.serialize(todo) {
                     println!("Failed to write updated todo to db: {e:?}");
                     exit(1);
@@ -259,5 +249,37 @@ fn complete_todo(id: String) {
             println!("Failed to flush reader: {e:?}");
             exit(1);
         }
+    }
+}
+
+fn complete_todo(id: String) {
+    let mut reader = get_reader();
+    let mut updated = false;
+
+    let updated_records = reader
+        .deserialize()
+        .map(|row| {
+            let mut record: Todo = row.unwrap();
+
+            if id == record.id && !record.completed {
+                println!("Updating todo with id {id}...");
+                updated = true;
+                record.completed = true;
+            }
+
+            record
+        })
+        .collect::<Vec<Todo>>();
+
+    if !updated {
+        println!("Todo with ID '{id}' not found or already completed.");
+        list_todos();
+        return;
     };
+
+    write_to_database(updated_records);
+}
+
+fn delete_todo(id: String) {
+    todo!()
 }
