@@ -242,8 +242,6 @@ fn write_to_database(records: Vec<Todo>) {
                 println!("Failed to flush writer: {e:?}");
                 exit(1);
             }
-
-            list_todos();
         }
         Err(e) => {
             println!("Failed to flush reader: {e:?}");
@@ -278,8 +276,50 @@ fn complete_todo(id: String) {
     };
 
     write_to_database(updated_records);
+    list_todos();
 }
 
 fn delete_todo(id: String) {
-    todo!()
+    let mut reader = get_reader();
+    let mut updated = false;
+    let mut deleted = String::new();
+
+    let mut updated_records: Vec<Todo> = reader
+        .deserialize::<Todo>()
+        .filter_map(|row| {
+            if let Ok(record) = row {
+                if record.id == id {
+                    updated = true;
+                    deleted = record.task
+                } else {
+                    return Some(record);
+                }
+            }
+
+            None
+        })
+        .collect();
+
+    if updated {
+        // update ids
+        updated_records = updated_records
+            .into_iter()
+            .enumerate()
+            .map(|(idx, mut record)| {
+                let id = record.id.parse::<usize>().unwrap();
+                if id != idx + 1 {
+                    record.id = (idx + 1).to_string();
+                }
+
+                return record;
+            })
+            .collect()
+    } else {
+        println!("Todo with ID '{id}' not found");
+        exit(1)
+    }
+
+    write_to_database(updated_records);
+    list_todos();
+    println!("Deleted task \"{deleted}\" with ID \"{id}\"");
 }
