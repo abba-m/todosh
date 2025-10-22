@@ -43,10 +43,10 @@ Currently implemented:
 - `list` - Display all todos in a formatted table
 - `create` - Add a new todo
 - `complete` - Mark a todo as completed
+- `delete` - Remove a todo
 
 Planned commands (framework ready):
 - `update` - Modify an existing todo
-- `delete` - Remove a todo
 
 ### Examples
 
@@ -120,7 +120,7 @@ N/A
 
 - [x] Implement `create` command for adding new todos
 - [ ] Implement `update` command for modifying existing todos
-- [ ] Implement `delete` command for removing todos
+- [x] Implement `delete` command for removing todos
 - [x] Implement `complete` command for marking todos as done
 - [ ] Add filtering and search capabilities
 - [ ] Add due dates and priority levels
