@@ -41,12 +41,12 @@ todosh is a simple, efficient command-line todo list manager that stores your ta
 
 Currently implemented:
 - `list` - Display all todos in a formatted table
+- `create` - Add a new todo
+- `complete` - Mark a todo as completed
 
 Planned commands (framework ready):
-- `create` - Add a new todo
 - `update` - Modify an existing todo
 - `delete` - Remove a todo
-- `complete` - Mark a todo as completed
 
 ### Examples
 
