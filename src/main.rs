@@ -91,13 +91,37 @@ fn main() -> ExitCode {
             let value = args.value_of("input");
 
             if let Some(id) = value {
-                let id: u16 = id.parse().expect("Invalid Todo id supplied");
+                let id: usize = id.parse().expect("error: Invalid Todo id supplied");
+                let mut reader = get_reader();
+
+                if id > reader.records().count() {
+                    println!("error: No Todo with ID {id}");
+                    exit(1)
+                };
 
                 complete_todo(id.to_string());
             } else {
                 println!("error: Id is expected");
                 exit(1);
             }
+        }
+        "update" => {
+            let value = args.value_of("input");
+
+            if value.is_none() {
+                println!("error: Id is expected");
+                exit(1)
+            }
+
+            let id: usize = value.unwrap().parse().expect("Invalid ID passed");
+            let mut reader = get_reader();
+
+            if id > reader.records().count() {
+                println!("error: No Todo with ID {id}");
+                exit(1)
+            };
+
+            update_todo(id.to_string());
         }
         "delete" => {
             let value = args.value_of("input");
@@ -322,4 +346,38 @@ fn delete_todo(id: String) {
     write_to_database(updated_records);
     list_todos();
     println!("Deleted task \"{deleted}\" with ID \"{id}\"");
+}
+
+fn update_todo(id: String) {
+    let mut reader = get_reader();
+    let mut updated = false;
+
+    let updated_records = reader
+        .deserialize()
+        .map(|row| {
+            let mut record: Todo = row.unwrap();
+
+            if id == record.id {
+                let mut input = String::new();
+                println!("Update todo ({}):", record.task);
+
+                if let Err(error) = io::stdin().read_line(&mut input) {
+                    println!("error: {error}");
+                    exit(1);
+                }
+
+                if !input.trim().is_empty() && input.ne(&record.task) {
+                    record.task = input;
+                    updated = true;
+                }
+            }
+
+            record
+        })
+        .collect::<Vec<Todo>>();
+
+    if updated {
+        write_to_database(updated_records);
+    }
+    list_todos();
 }

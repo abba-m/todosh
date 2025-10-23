@@ -44,20 +44,32 @@ Currently implemented:
 - `create` - Add a new todo
 - `complete` - Mark a todo as completed
 - `delete` - Remove a todo
+- `update` - Modify an existing todo
 
 Planned commands (framework ready):
-- `update` - Modify an existing todo
+- `filter` - Filter todos based on criteria
+- `search` - Search todos by keywords
+- `help` - Display help information
+- `backup` - Backup todo data
+- `restore` - Restore todo data from backup
+- `config` - Manage application configuration
 
 ### Examples
 
 ```bash
 # List all todos
 ./todosh list
-
-# Other commands (coming soon)
 ./todosh create "Buy groceries"
 ./todosh complete 1
 ./todosh delete 2
+
+# Other commands (coming soon)
+./todosh list --filter=not-completed  --due=today
+./todosh search "groceries"
+./todosh backup
+./todosh restore backup_file.csv
+./todosh config set data_path ./my_todos.csv
+./todosh help
 ```
 
 ## Data Format
@@ -119,7 +131,7 @@ N/A
 ## Roadmap
 
 - [x] Implement `create` command for adding new todos
-- [ ] Implement `update` command for modifying existing todos
+- [x] Implement `update` command for modifying existing todos
 - [x] Implement `delete` command for removing todos
 - [x] Implement `complete` command for marking todos as done
 - [ ] Add filtering and search capabilities
